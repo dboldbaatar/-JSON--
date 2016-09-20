@@ -1,7 +1,6 @@
 <?php
 
-
-	function get_basename($filename)
+	function getbasename($filename)
 	{
 	    $url_arr  = explode('/', $filename);
 	    $ct       = count($url_arr);
@@ -12,27 +11,7 @@
 	    return $img_type;
 	}
 
-	function substrText($garchig, $urt)
-	{
-	    $garchig = html2txt($garchig);
-	    $return  = '';
-	    if (strlen($garchig) < $urt) {
-	        $return = $garchig;
-	    } else {
-	        $val = substr($garchig, 0, $urt);
-	        $val = explode(' ', $val);
-	        
-	        for ($i = 0; $i < count($val) - 1; $i++) {
-	            $return .= $val[$i] . ' ';
-	        }
-	        
-	        $return .= ' ...';
-	    }
-	    
-	    return $return;
-	}
-
-	function html2txt($document, $urt = null)
+	function html2txt($document)
 	{
 	    
 	    $search = array(
@@ -49,11 +28,8 @@
 	    $text   = str_replace(" &nbsp;", "", $text);
 	    $text   = str_replace("&nbsp;", "", $text);
 	    
-	    if ($urt == null) {
-	        return html_entity_decode($text);
-	    } else {
-	        return html_entity_decode(substrText($text, $urt));
-	    }
+	    return $text;
+	    
 	}
 
 
@@ -99,25 +75,30 @@
 	$ratenames['AGG'] = "Мөнгө /унцаар/";
 	$ratenames['POS'] = "";
 
-
 	$html = file_get_contents("http://golomtbank.mn/mn/home/rates");
+
 	preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $matches);
-	preg_match_all("/<img .*?(?=src)src=\"([^\"]+)\"/si", $matches[0][1], $images);
-	$images  = $images[1];
-	$tdmatch = preg_replace('/(<img.*>)/', '', $matches[0][1]);
-	preg_match_all('/<td.*?>(.*?)<\/td>/si', $tdmatch, $matches);
-	for ($i = 0; $i < count($images) - 1; $i++) {
+	$tdmatch = $matches[0][1];
+	preg_match_all('/<tr.*?>(.*?)<\/tr>/si', $tdmatch, $matches);
+
+	foreach ($matches[0] as $key => $item) {
+	    if ($key > 1) {
+	        preg_match_all('/<td.*?>(.*?)<\/td>/si', $item, $matchestd);
+	        
+	        preg_match('/src="(.*)"/iS', $matchestd[0][0], $src);
+	        $code                                  = getbasename($src[1]);
+	        $data['golomt'][$key]['name']          = $ratenames[$code];
+	        $data['golomt'][$key]['code']          = $code;
+	        $data['golomt'][$key]['haalthansh']    = html2txt($matchestd[0][1]);
+	        $data['golomt'][$key]['belenavah']     = html2txt($matchestd[0][2]);
+	        $data['golomt'][$key]['belenzarah']    = html2txt($matchestd[0][3]);
+	        $data['golomt'][$key]['belenbusavah']  = html2txt($matchestd[0][4]);
+	        $data['golomt'][$key]['belenbuszarah'] = html2txt($matchestd[0][5]);
+	    }
 	    
-	    $code                       = get_basename($images[$i]);
-	    $data['golomt'][$i]['name'] = $ratenames[$code];
-	    $data['golomt'][$i]['code'] = $code;
-	    
-	    $data['golomt'][$i]['haalthansh']    = html2txt($matches[0][$i * 7 + 1]);
-	    $data['golomt'][$i]['belenavah']     = html2txt($matches[0][$i * 7 + 2]);
-	    $data['golomt'][$i]['belenzarah']    = html2txt($matches[0][$i * 7 + 3]);
-	    $data['golomt'][$i]['belenbusavah']  = html2txt($matches[0][$i * 7 + 4]);
-	    $data['golomt'][$i]['belenbuszarah'] = html2txt($matches[0][$i * 7 + 5]);
 	}
+
+	$data['golomt'] = array_values($data['golomt']);
 
 
 	$opts    = array(
@@ -128,110 +109,79 @@
 	$context = stream_context_create($opts);
 
 	$html = file_get_contents("https://www.khanbank.com/mn/home/rates", false, $context);
+
 	preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $matches);
+	$tdmatch = $matches[0][0];
+	preg_match_all('/<tr.*?>(.*?)<\/tr>/si', $tdmatch, $matches);
 
 
-	preg_match_all("/<img .*?(?=src)src=\"([^\"]+)\"/si", $matches[0][0], $images);
-	$zurag = $images[1];
 
-	for ($i = 0; $i < count($zurag); $i++) {
-	    if ($i % 2 == 0) {
+	foreach ($matches[0] as $key => $item) {
+	    if ($key > 1) {
+	        preg_match_all('/<td.*?>(.*?)<\/td>/si', $item, $matchestd);
 	        
-	    } else {
-	        $zuragnuud[] = $zurag[$i];
+	        preg_match('/src="(.*)"/iS', $matchestd[0][0], $src);
+	        $code                                = getbasename($src[1]);
+	        $data['khan'][$key]['name']          = $ratenames[$code];
+	        $data['khan'][$key]['code']          = $code;
+	        $data['khan'][$key]['haalthansh']    = html2txt($matchestd[0][1]);
+	        $data['khan'][$key]['belenavah']     = html2txt($matchestd[0][2]);
+	        $data['khan'][$key]['belenzarah']    = html2txt($matchestd[0][3]);
+	        $data['khan'][$key]['belenbusavah']  = html2txt($matchestd[0][4]);
+	        $data['khan'][$key]['belenbuszarah'] = html2txt($matchestd[0][5]);
 	    }
-	}
-
-
-	$tdmatch = $matches[1][0];
-	preg_match_all('/<td.*?>(.*?)<\/td>/si', $tdmatch, $matches);
-
-
-	for ($i = 0; $i < count($zuragnuud) - 1; $i++) {
-	    $k                        = $i * 7 + 1;
-	    $code                     = get_basename($zuragnuud[$i]);
-	    $data['khan'][$i]['name'] = $ratenames[$code];
-	    $data['khan'][$i]['code'] = $code;
 	    
-	    $data['khan'][$i]['haalthansh'] = html2txt($matches[0][$k + 1]);
-	    $data['khan'][$i]['belenavah']  = html2txt($matches[0][$k + 2]);
-	    $data['khan'][$i]['belenzarah'] = html2txt($matches[0][$k + 3]);
-	    ;
-	    $data['khan'][$i]['belenbusavah']  = html2txt($matches[0][$k + 4]);
-	    $data['khan'][$i]['belenbuszarah'] = html2txt($matches[0][$k + 5]);
 	}
 
-
+	$data['khan'] = array_values($data['khan']);
 
 
 	$html = file_get_contents("http://www.tdbm.mn/script.php?mod=rate&ln=mn");
 	preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $matches);
-	preg_match_all("/<img .*?(?=src)src=\"([^\"]+)\"/si", $matches[0][0], $images);
-	$images = $images[1];
+	$tdmatch = $matches[0][0];
+	preg_match_all('/<tr.*?>(.*?)<\/tr>/si', $tdmatch, $matches);
 
-	$tdmatch = $matches[1][0];
-	preg_match_all('/<td.*?>(.*?)<\/td>/si', $tdmatch, $matches);
-
-	for ($i = 0; $i < count($images); $i++) {
-	    
-	    
-	    if ($i == 0) {
-	        $k = 9;
-	    } else {
-	        $k = ($i * 6) + 9;
+	foreach ($matches[0] as $key => $item) {
+	    if ($key > 2) {
+	        preg_match_all('/<td.*?>(.*?)<\/td>/si', $item, $matchestd);
+	        preg_match('/src="(.*)"/iS', $matchestd[0][0], $src);
+	        $code                                = getbasename($src[1]);
+	        $data['tdbm'][$key]['name']          = $ratenames[$code];
+	        $data['tdbm'][$key]['code']          = $code;
+	        $data['tdbm'][$key]['haalthansh']    = html2txt($matchestd[0][1]);
+	        $data['tdbm'][$key]['belenavah']     = html2txt($matchestd[0][2]);
+	        $data['tdbm'][$key]['belenzarah']    = html2txt($matchestd[0][3]);
+	        $data['tdbm'][$key]['belenbusavah']  = html2txt($matchestd[0][4]);
+	        $data['tdbm'][$key]['belenbuszarah'] = html2txt($matchestd[0][5]);
 	    }
 	    
-	    $code                     = get_basename($images[$i]);
-	    $data['tdbm'][$i]['name'] = $ratenames[$code];
-	    $data['tdbm'][$i]['code'] = $code;
-	    
-	    $data['tdbm'][$i]['haalthansh']    = html2txt($matches[0][$k + 1]);
-	    $data['tdbm'][$i]['belenavah']     = html2txt($matches[0][$k + 2]);
-	    $data['tdbm'][$i]['belenzarah']    = html2txt($matches[0][$k + 3]);
-	    $data['tdbm'][$i]['belenbusavah']  = html2txt($matches[0][$k + 4]);
-	    $data['tdbm'][$i]['belenbuszarah'] = html2txt($matches[0][$k + 5]);
 	}
 
+	$data['tdbm'] = array_values($data['tdbm']);
 
 	$html = file_get_contents("http://xacbank.mn/mn/calculator/rates");
 	preg_match_all('/<table.*?>(.*?)<\/table>/si', $html, $matches);
+	$tdmatch = $matches[0][1];
+	preg_match_all('/<tr.*?>(.*?)<\/tr>/si', $tdmatch, $matches);
 
-
-
-
-	preg_match_all("/<img .*?(?=src)src=\"([^\"]+)\"/si", $matches[0][1], $images);
-	$images = $images[1];
-
-	$tdmatch = preg_replace('/(<img.*>)/', '', $matches[0][1]);
-	preg_match_all('/<td.*?>(.*?)<\/td>/si', $tdmatch, $matches);
-
-	$imagesz = '';
-	for ($i = 0; $i < count($images); $i++) {
-	    if (strlen(get_basename($images[$i])) == 3) {
-	        $imagesz[] = $images[$i];
+	foreach ($matches[0] as $key => $item) {
+	    if ($key > 1) {
+	        preg_match_all('/<td.*?>(.*?)<\/td>/si', $item, $matchestd);
+	        
+	        preg_match('/src="(.*)"/iS', $matchestd[0][0], $src);
+	        $code                               = getbasename($src[1]);
+	        $data['xac'][$key]['name']          = $ratenames[$code];
+	        $data['xac'][$key]['code']          = $code;
+	        $data['xac'][$key]['haalthansh']    = html2txt($matchestd[0][1]);
+	        $data['xac'][$key]['belenavah']     = html2txt($matchestd[0][2]);
+	        $data['xac'][$key]['belenzarah']    = html2txt($matchestd[0][3]);
+	        $data['xac'][$key]['belenbusavah']  = html2txt($matchestd[0][4]);
+	        $data['xac'][$key]['belenbuszarah'] = html2txt($matchestd[0][5]);
 	    }
-	}
-
-
-	for ($i = 0; $i < count($imagesz); $i++) {
-	    
-	    $k = $i * 6;
-	    
-	    $code                             = get_basename($imagesz[$i]);
-	    $data['xac'][$i]['name']          = $ratenames[$code];
-	    $data['xac'][$i]['code']          = $code;
-	    $data['xac'][$i]['haalthansh']    = html2txt($matches[0][$k + 1]);
-	    $data['xac'][$i]['belenavah']     = html2txt($matches[0][$k + 2]);
-	    $data['xac'][$i]['belenzarah']    = html2txt($matches[0][$k + 3]);
-	    $data['xac'][$i]['belenbusavah']  = html2txt($matches[0][$k + 4]);
-	    $data['xac'][$i]['belenbuszarah'] = html2txt($matches[0][$k + 5]);
 	    
 	}
 
-	$var = json_encode($data);
-	$filename = 'jsonBank.html';
-	$data = fopen( $filename, 'w');
-	fwrite($data, $var);
-	fclose($data);
+	$data['xac'] = array_values($data['xac']);
 
-	
+	echo json_encode($data);
+
